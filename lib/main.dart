@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vr_player/vr_player.dart';
+import 'package:image_picker/image_picker.dart';
 import 'vr_image_viewer.dart';
 
 void main() => runApp(const MyApp());
@@ -42,6 +43,22 @@ class HomePageState extends State<HomePage> {
     'https://cdn.bitmovin.com/content/assets/playhouse-vr/m3u8s/105560.m3u8',
   ];
 
+  final ImagePicker _picker = ImagePicker();
+
+  Future<void> _pickVideo() async {
+    final XFile? video = await _picker.pickVideo(source: ImageSource.gallery);
+    if (video != null) {
+      // Use raw file path for local playback
+      final String filePath = video.path;
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => VideoPlayerPage(videoUrl: filePath),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -51,6 +68,11 @@ class HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _showAddLinkDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.video_library),
+            onPressed: _pickVideo,
+            tooltip: 'Pick Video from Device',
           ),
           IconButton(
             icon: const Icon(Icons.image),
