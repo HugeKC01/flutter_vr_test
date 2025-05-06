@@ -8,10 +8,10 @@ class MyApp extends StatefulWidget {
   const MyApp({super.key});
 
   @override
-  _MyAppState createState() => _MyAppState();
+  MyAppState createState() => MyAppState();
 }
 
-class _MyAppState extends State<MyApp> {
+class MyAppState extends State<MyApp> {
   @override
   void initState() {
     super.initState();
@@ -20,11 +20,11 @@ class _MyAppState extends State<MyApp> {
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home:Scaffold(
+      home: Scaffold(
         body: Center(
           child: HomePage(),
-        )
-      )
+        ),
+      ),
     );
   }
 }
@@ -33,37 +33,91 @@ class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  _HomePageState createState() => _HomePageState();
+  HomePageState createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
+  final List<String> _links = [
+    'https://cdn.bitmovin.com/content/assets/playhouse-vr/m3u8s/105560.m3u8',
+  ];
+
   @override
   Widget build(BuildContext context) {
-    return ElevatedButton(
-      onPressed: buttonOnPressed,
-      child: const Text('Start Video'),
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Home Page'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _showAddLinkDialog,
+          ),
+        ],
+      ),
+      body: ListView.builder(
+        itemCount: _links.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(_links[index]),
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => VideoPlayerPage(videoUrl: _links[index]),
+                ),
+              );
+            },
+          );
+        },
+      ),
     );
   }
 
-  void buttonOnPressed() {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const VideoPlayerPage(),
-      ),
+  void _showAddLinkDialog() {
+    final TextEditingController linkController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Add Link'),
+          content: TextField(
+            controller: linkController,
+            decoration: const InputDecoration(hintText: 'Enter link'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: const Text('Cancel'),
+            ),
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  _links.add(linkController.text);
+                });
+                Navigator.of(context).pop();
+              },
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
     );
   }
 }
 
 class VideoPlayerPage extends StatefulWidget {
-  const VideoPlayerPage({super.key});
+  final String videoUrl;
+
+  const VideoPlayerPage({super.key, required this.videoUrl});
 
   @override
   _VideoPlayerPageState createState() => _VideoPlayerPageState();
 }
 
 class _VideoPlayerPageState extends State<VideoPlayerPage>
-with TickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late VrPlayerController _viewPlayerController;
   late AnimationController _animationController;
   late Animation<double> _animation;
@@ -95,15 +149,24 @@ with TickerProviderStateMixin {
     super.initState();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Trigger a rebuild to ensure UI updates when orientation changes
+    setState(() {});
+  }
+
   void _toggleShowingBar() {
     switchVolumeSliderDisplay(show: false);
 
-    _isShowingBar = !_isShowingBar;
-    if (_isShowingBar) {
-      _animationController.forward();
-    } else {
-      _animationController.reverse();
-    }
+    setState(() {
+      _isShowingBar = !_isShowingBar;
+      if (_isShowingBar) {
+        _animationController.forward();
+      } else {
+        _animationController.reverse();
+      }
+    });
   }
 
   @override
@@ -113,12 +176,16 @@ with TickerProviderStateMixin {
     _isLandScapeOrientation = MediaQuery.of(context).orientation == Orientation.landscape;
 
     return Scaffold(
-      appBar: AppBar(
+      appBar: _isFullScreen ? null : AppBar(
         title: const Text('VR Player'),
       ),
       body: GestureDetector(
-        onTap: _toggleShowingBar,
-        child: Stack (
+        onTap: () {
+          if (_isShowingBar) {
+            _toggleShowingBar(); // Hide the control bar if it is currently visible
+          }
+        },
+        child: Stack(
           alignment: Alignment.bottomCenter,
           children: <Widget>[
             VrPlayer(
@@ -128,79 +195,78 @@ with TickerProviderStateMixin {
               width: _playerWidth,
               height: _playerHeight,
             ),
-            Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
-              child: FadeTransition(
-                opacity: _animation,
-                child: ColoredBox(
-                  color: Colors.black,
-                  child: Row(
-                    children: <Widget>[
-                      IconButton(
-                        icon: Icon(_isVideoFinished ? Icons.replay : _isPlaying ? Icons.pause : Icons.play_arrow,
-                        color: Colors.white,
-                        ),
-                        onPressed: playAndPause,
-                      ),
-                      Text(
-                        _currentPosition ?? '00:00',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      Expanded(
-                        child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(       activeTrackColor: Colors.amberAccent,
-                          inactiveTrackColor: Colors.grey,
-                          trackHeight: 5,
-                          thumbColor: Colors.white,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                          overlayColor: Colors.purple.withAlpha(32),
-                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                          ),
-                          child: Slider(
-                            value: _seekPosition,
-                            max: _intDuration?.toDouble() ?? 0.0,
-                            onChangeEnd: (value) {
-                              _viewPlayerController.seekTo(value.toInt());
-                            },
-                            onChanged: (value) {
-                              onChangePosition(value.toInt());
-                            },
-                          ),
-                        ),
-                      ),
-                      Text(
-                        _duration ?? '99:99',
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                      if (_isFullScreen || _isLandScapeOrientation)
+            if (_isShowingBar)
+              Positioned(
+                bottom: 0,
+                left: 0,
+                right: 0,
+                child: FadeTransition(
+                  opacity: _animation,
+                  child: ColoredBox(
+                    color: Colors.black,
+                    child: Row(
+                      children: <Widget>[
                         IconButton(
-                          icon: Icon(_isVolumeEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                          icon: Icon(_isVideoFinished ? Icons.replay : _isPlaying ? Icons.pause : Icons.play_arrow,
                           color: Colors.white,
                           ),
-                          onPressed: () => switchVolumeSliderDisplay(show: true),
+                          onPressed: playAndPause,
                         ),
-                        IconButton(
-                          icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                          color: Colors.white,
+                        Text(
+                          _currentPosition ?? '00:00',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        Expanded(
+                          child: SliderTheme(
+                            data: SliderTheme.of(context).copyWith(       activeTrackColor: Colors.amberAccent,
+                            inactiveTrackColor: Colors.grey,
+                            trackHeight: 5,
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                            overlayColor: Colors.purple.withAlpha(32),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                            ),
+                            child: Slider(
+                              value: _seekPosition,
+                              max: _intDuration?.toDouble() ?? 0.0,
+                              onChangeEnd: (value) {
+                                _viewPlayerController.seekTo(value.toInt());
+                              },
+                              onChanged: (value) {
+                                onChangePosition(value.toInt());
+                              },
+                            ),
                           ),
-                          onPressed: fullScreenPressed,
                         ),
-                        if (_isFullScreen)
+                        Text(
+                          _duration ?? '99:99',
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                        if (_isFullScreen || _isLandScapeOrientation)
                           IconButton(
-                            icon: Image.asset('assets/icons/cardboard.png',
+                            icon: Icon(_isVolumeEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                             color: Colors.white,
                             ),
-                            onPressed: cardBoardPressed,
-                          )
-                          else
-                            Container(),
-                      ],
+                            onPressed: () => switchVolumeSliderDisplay(show: true),
+                          ),
+                          IconButton(
+                            icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                            color: Colors.white,
+                            ),
+                            onPressed: fullScreenPressed,
+                          ),
+                          if (_isFullScreen)
+                            IconButton(
+                              icon: const Icon(Icons.vrpano, color: Colors.white),
+                              onPressed: cardBoardPressed,
+                            )
+                            else
+                              Container(),
+                        ],
+                      ),
                     ),
-                  ),
                 ),
-            ),
+              ),
             Positioned(
               height: 180,
               right: 4,
@@ -225,23 +291,45 @@ with TickerProviderStateMixin {
   }
 
   Future<void> fullScreenPressed() async {
-    await _viewPlayerController.fullScreen();
-    setState(() {
-      _isFullScreen = !_isFullScreen;
-    });
+    try {
+      // Toggle fullscreen mode in the player
+      await _viewPlayerController.fullScreen();
 
-    if (_isFullScreen) {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-      overlays: [],
-      );
-    } else {
-      SystemChrome.setPreferredOrientations([DeviceOrientation.landscapeLeft, DeviceOrientation.landscapeRight, DeviceOrientation.portraitUp, DeviceOrientation.portraitDown]);
-      SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual,
-      overlays: SystemUiOverlay.values,
-      );
+      // Update fullscreen state
+      setState(() {
+        _isFullScreen = !_isFullScreen;
+      });
+
+      // Apply system UI and orientation changes based on fullscreen state
+      if (_isFullScreen) {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight
+        ]);
+        await SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: [],
+        );
+      } else {
+        await SystemChrome.setPreferredOrientations([
+          DeviceOrientation.portraitUp,
+          DeviceOrientation.portraitDown,
+          DeviceOrientation.landscapeLeft,
+          DeviceOrientation.landscapeRight
+        ]);
+        await SystemChrome.setEnabledSystemUIMode(
+          SystemUiMode.manual,
+          overlays: SystemUiOverlay.values,
+        );
+      }
+
+      // Trigger a rebuild to ensure UI updates
+      setState(() {});
+    } catch (e) {
+      debugPrint("Error toggling fullscreen mode: $e");
     }
   }
+
   Future<void> playAndPause() async {
     if (_isPlaying) {
       await _viewPlayerController.pause();
@@ -266,7 +354,7 @@ with TickerProviderStateMixin {
       ..onPositionChange = onChangePosition
       ..onFinishedChange = onRecieveEnded;
     _viewPlayerController.loadVideo(
-      videoUrl: 'https://cdn.bitmovin.com/content/assets/playhouse-vr/m3u8s/105560.m3u8',
+      videoUrl: widget.videoUrl,
     );
   }
 
@@ -336,3 +424,5 @@ with TickerProviderStateMixin {
     return '${twoDigits(duration.inHours)}:$twoDigitMinutes:$twoDigitSeconds';
   }
 }
+
+//https://cdn.bitmovin.com/content/assets/playhouse-vr/m3u8s/105560.m3u8
