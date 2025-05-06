@@ -389,6 +389,10 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
         if (!_isShowingBar) {
           _toggleShowingBar();
         }
+        // Autoplay when video is ready
+        if (!_isPlaying) {
+          playAndPause();
+        }
         break;
       case VrState.buffering:
       case VrState.idle:
