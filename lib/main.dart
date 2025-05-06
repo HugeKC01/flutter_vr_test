@@ -45,7 +45,7 @@ class HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Home Page'),
+        title: const Text('VR Player'),
         actions: [
           IconButton(
             icon: const Icon(Icons.add),
@@ -202,22 +202,54 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
-              onTap: () {
-                if (_isShowingBar) {
-                  _toggleShowingBar();
-                }
-              },
+              onTap: _toggleShowingBar,
             ),
           ),
           if (_isShowingBar)
             Positioned(
-              bottom: 0,
-              left: 0,
-              right: 0,
+              top: 32,
+              left: 24,
               child: FadeTransition(
                 opacity: _animation,
-                child: ColoredBox(
-                  color: Colors.black,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.of(context).pop(),
+                  ),
+                ),
+              ),
+            ),
+          if (_isShowingBar)
+            Positioned(
+              left: 24,
+              right: 24,
+              bottom: 32,
+              child: FadeTransition(
+                opacity: _animation,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(24),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.3),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
                   child: Row(
                     children: <Widget>[
                       IconButton(
@@ -264,7 +296,6 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
                           ),
                           onPressed: () => switchVolumeSliderDisplay(show: true),
                         ),
-                      // VR mode button always visible
                       IconButton(
                         icon: const Icon(Icons.vrpano, color: Colors.white),
                         onPressed: cardBoardPressed,
@@ -334,7 +365,8 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
         ..onDurationChange = onRecieveDuration
         ..onPositionChange = onChangePosition
         ..onFinishedChange = onRecieveEnded;
-      await Future.delayed(const Duration(milliseconds: 100));
+      // Add a small delay before loading the video to ensure everything is ready
+      await Future.delayed(const Duration(milliseconds: 200));
       _viewPlayerController.loadVideo(
         videoUrl: widget.videoUrl,
       );
@@ -353,6 +385,10 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
           isVideoLoading = false;
           isVideoReady = true;
         });
+        // Show the control bar only after video is ready
+        if (!_isShowingBar) {
+          _toggleShowingBar();
+        }
         break;
       case VrState.buffering:
       case VrState.idle:
