@@ -152,8 +152,7 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Trigger a rebuild to ensure UI updates when orientation changes
-    setState(() {});
+    // Removed setState(() {}); to prevent UI freeze and ensure video time/seek bar stay in sync in fullscreen mode.
   }
 
   void _toggleShowingBar() {
@@ -169,119 +168,169 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
     });
   }
 
+  // Function to toggle the control bar in fullscreen mode
+  void toggleControlBarInFullScreen() {
+    if (_isFullScreen) {
+      setState(() {
+        _isShowingBar = !_isShowingBar;
+        if (_isShowingBar) {
+          _animationController.forward();
+        } else {
+          _animationController.reverse();
+        }
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     _playerWidth = MediaQuery.of(context).size.width;
     _playerHeight = _isFullScreen ? MediaQuery.of(context).size.height : _playerWidth / 2;
     _isLandScapeOrientation = MediaQuery.of(context).orientation == Orientation.landscape;
 
+    // Auto-hide control bar after a delay in fullscreen mode
+    if (_isFullScreen && _isShowingBar) {
+      Future.delayed(const Duration(seconds: 6), () {
+        if (mounted && _isFullScreen && _isShowingBar) {
+          setState(() {
+            _isShowingBar = false;
+            _animationController.reverse();
+          });
+        }
+      });
+    }
+
     return Scaffold(
       appBar: _isFullScreen ? null : AppBar(
         title: const Text('VR Player'),
       ),
-      body: GestureDetector(
-        onTap: () {
-          if (_isShowingBar) {
-            _toggleShowingBar(); // Hide the control bar if it is currently visible
-          }
-        },
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: <Widget>[
-            VrPlayer(
-              x: 0,
-              y: 0,
-              onCreated: onViewPlayerCreated,
-              width: _playerWidth,
-              height: _playerHeight,
+      body: Stack(
+        alignment: Alignment.bottomCenter,
+        children: <Widget>[
+          // VrPlayer at the bottom
+          VrPlayer(
+            x: 0,
+            y: 0,
+            onCreated: onViewPlayerCreated,
+            width: _playerWidth,
+            height: _playerHeight,
+          ),
+          // Overlay a full-area GestureDetector above the player
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                // In fullscreen, toggle control bar on tap. Otherwise, only hide if showing.
+                if (_isFullScreen) {
+                  _toggleShowingBar();
+                } else if (_isShowingBar) {
+                  _toggleShowingBar();
+                }
+              },
             ),
-            if (_isShowingBar)
-              Positioned(
-                bottom: 0,
-                left: 0,
-                right: 0,
-                child: FadeTransition(
-                  opacity: _animation,
-                  child: ColoredBox(
-                    color: Colors.black,
-                    child: Row(
-                      children: <Widget>[
+          ),
+          // Floating button for toggling control bar in fullscreen
+          if (_isFullScreen)
+            Positioned(
+              top: 24,
+              right: 24,
+              child: FloatingActionButton(
+                mini: true,
+                backgroundColor: Colors.black.withOpacity(0.5),
+                child: Icon(
+                  _isShowingBar ? Icons.visibility_off : Icons.visibility,
+                  color: Colors.white,
+                ),
+                onPressed: _toggleShowingBar,
+                tooltip: 'Show/Hide Controls',
+              ),
+            ),
+          if (_isShowingBar)
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: FadeTransition(
+                opacity: _animation,
+                child: ColoredBox(
+                  color: Colors.black,
+                  child: Row(
+                    children: <Widget>[
+                      IconButton(
+                        icon: Icon(_isVideoFinished ? Icons.replay : _isPlaying ? Icons.pause : Icons.play_arrow,
+                        color: Colors.white,
+                        ),
+                        onPressed: playAndPause,
+                      ),
+                      Text(
+                        _currentPosition ?? '00:00',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      Expanded(
+                        child: SliderTheme(
+                          data: SliderTheme.of(context).copyWith(       activeTrackColor: Colors.amberAccent,
+                          inactiveTrackColor: Colors.grey,
+                          trackHeight: 5,
+                          thumbColor: Colors.white,
+                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                          overlayColor: Colors.purple.withAlpha(32),
+                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                          ),
+                          child: Slider(
+                            value: _seekPosition,
+                            max: _intDuration?.toDouble() ?? 0.0,
+                            onChangeEnd: (value) {
+                              _viewPlayerController.seekTo(value.toInt());
+                            },
+                            onChanged: (value) {
+                              onChangePosition(value.toInt());
+                            },
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _duration ?? '99:99',
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                      if (_isFullScreen || _isLandScapeOrientation)
                         IconButton(
-                          icon: Icon(_isVideoFinished ? Icons.replay : _isPlaying ? Icons.pause : Icons.play_arrow,
+                          icon: Icon(_isVolumeEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                           color: Colors.white,
                           ),
-                          onPressed: playAndPause,
+                          onPressed: () => switchVolumeSliderDisplay(show: true),
                         ),
-                        Text(
-                          _currentPosition ?? '00:00',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        Expanded(
-                          child: SliderTheme(
-                            data: SliderTheme.of(context).copyWith(       activeTrackColor: Colors.amberAccent,
-                            inactiveTrackColor: Colors.grey,
-                            trackHeight: 5,
-                            thumbColor: Colors.white,
-                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                            overlayColor: Colors.purple.withAlpha(32),
-                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
-                            ),
-                            child: Slider(
-                              value: _seekPosition,
-                              max: _intDuration?.toDouble() ?? 0.0,
-                              onChangeEnd: (value) {
-                                _viewPlayerController.seekTo(value.toInt());
-                              },
-                              onChanged: (value) {
-                                onChangePosition(value.toInt());
-                              },
-                            ),
+                        IconButton(
+                          icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
+                          color: Colors.white,
                           ),
+                          onPressed: fullScreenPressed,
                         ),
-                        Text(
-                          _duration ?? '99:99',
-                          style: const TextStyle(color: Colors.white),
-                        ),
-                        if (_isFullScreen || _isLandScapeOrientation)
+                        if (_isFullScreen)
                           IconButton(
-                            icon: Icon(_isVolumeEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
-                            color: Colors.white,
-                            ),
-                            onPressed: () => switchVolumeSliderDisplay(show: true),
-                          ),
-                          IconButton(
-                            icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                            color: Colors.white,
-                            ),
-                            onPressed: fullScreenPressed,
-                          ),
-                          if (_isFullScreen)
-                            IconButton(
-                              icon: const Icon(Icons.vrpano, color: Colors.white),
-                              onPressed: cardBoardPressed,
-                            )
-                            else
-                              Container(),
-                        ],
-                      ),
+                            icon: const Icon(Icons.vrpano, color: Colors.white),
+                            onPressed: cardBoardPressed,
+                          )
+                          else
+                            Container(),
+                      ],
                     ),
-                ),
+                  ),
               ),
-            Positioned(
-              height: 180,
-              right: 4,
-              top: MediaQuery.of(context).size.height / 4,
-              child: _isVolumeSliderShown ? RotatedBox(quarterTurns: 3,
-              child: Slider(
-                value: _currentSliderValue,
-                divisions: 10,
-                onChanged: onChangeVolumeSlider,
-              ),
-              )
-              : const SizedBox(),
             ),
-          ],
-        ),
+          Positioned(
+            height: 180,
+            right: 4,
+            top: MediaQuery.of(context).size.height / 4,
+            child: _isVolumeSliderShown ? RotatedBox(quarterTurns: 3,
+            child: Slider(
+              value: _currentSliderValue,
+              divisions: 10,
+              onChanged: onChangeVolumeSlider,
+            ),
+            )
+            : const SizedBox(),
+          ),
+        ],
       ),
     );
   }
