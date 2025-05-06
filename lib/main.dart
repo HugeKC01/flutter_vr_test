@@ -123,7 +123,6 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
   late Animation<double> _animation;
   bool _isShowingBar = false;
   bool _isPlaying = false;
-  bool _isFullScreen = false;
   bool _isVideoFinished = false;
   bool _isLandScapeOrientation = false;
   bool _isVolumeSliderShown = false;
@@ -140,6 +139,11 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
 
   @override
   void initState() {
+    // Lock orientation to landscape when opening video player
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight
+    ]);
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 1),
@@ -168,83 +172,43 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
     });
   }
 
-  // Function to toggle the control bar in fullscreen mode
-  void toggleControlBarInFullScreen() {
-    if (_isFullScreen) {
-      setState(() {
-        _isShowingBar = !_isShowingBar;
-        if (_isShowingBar) {
-          _animationController.forward();
-        } else {
-          _animationController.reverse();
-        }
-      });
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     _playerWidth = MediaQuery.of(context).size.width;
-    _playerHeight = _isFullScreen ? MediaQuery.of(context).size.height : _playerWidth / 2;
+    _playerHeight = MediaQuery.of(context).size.height; // Use full body height
     _isLandScapeOrientation = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    // Auto-hide control bar after a delay in fullscreen mode
-    if (_isFullScreen && _isShowingBar) {
-      Future.delayed(const Duration(seconds: 6), () {
-        if (mounted && _isFullScreen && _isShowingBar) {
-          setState(() {
-            _isShowingBar = false;
-            _animationController.reverse();
-          });
-        }
-      });
-    }
+    // Hide system UI overlays (status bar and navigation bar)
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
     return Scaffold(
-      appBar: _isFullScreen ? null : AppBar(
-        title: const Text('VR Player'),
-      ),
+      // Remove the appBar
       body: Stack(
         alignment: Alignment.bottomCenter,
         children: <Widget>[
           // VrPlayer at the bottom
-          VrPlayer(
-            x: 0,
-            y: 0,
-            onCreated: onViewPlayerCreated,
+          SizedBox(
             width: _playerWidth,
             height: _playerHeight,
+            child: VrPlayer(
+              x: 0,
+              y: 0,
+              onCreated: onViewPlayerCreated,
+              width: _playerWidth,
+              height: _playerHeight,
+            ),
           ),
           // Overlay a full-area GestureDetector above the player
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.translucent,
               onTap: () {
-                // In fullscreen, toggle control bar on tap. Otherwise, only hide if showing.
-                if (_isFullScreen) {
-                  _toggleShowingBar();
-                } else if (_isShowingBar) {
+                if (_isShowingBar) {
                   _toggleShowingBar();
                 }
               },
             ),
           ),
-          // Floating button for toggling control bar in fullscreen
-          if (_isFullScreen)
-            Positioned(
-              top: 24,
-              right: 24,
-              child: FloatingActionButton(
-                mini: true,
-                backgroundColor: Colors.black.withOpacity(0.5),
-                child: Icon(
-                  _isShowingBar ? Icons.visibility_off : Icons.visibility,
-                  color: Colors.white,
-                ),
-                onPressed: _toggleShowingBar,
-                tooltip: 'Show/Hide Controls',
-              ),
-            ),
           if (_isShowingBar)
             Positioned(
               bottom: 0,
@@ -263,18 +227,19 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
                         onPressed: playAndPause,
                       ),
                       Text(
-                        _currentPosition ?? '00:00',
+                        _currentPosition ?? '00:00:00',
                         style: const TextStyle(color: Colors.white),
                       ),
                       Expanded(
                         child: SliderTheme(
-                          data: SliderTheme.of(context).copyWith(       activeTrackColor: Colors.amberAccent,
-                          inactiveTrackColor: Colors.grey,
-                          trackHeight: 5,
-                          thumbColor: Colors.white,
-                          thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
-                          overlayColor: Colors.purple.withAlpha(32),
-                          overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
+                          data: SliderTheme.of(context).copyWith(
+                            activeTrackColor: Colors.amberAccent,
+                            inactiveTrackColor: Colors.grey,
+                            trackHeight: 5,
+                            thumbColor: Colors.white,
+                            thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
+                            overlayColor: Colors.purple.withAlpha(32),
+                            overlayShape: const RoundSliderOverlayShape(overlayRadius: 14.0),
                           ),
                           child: Slider(
                             value: _seekPosition,
@@ -289,32 +254,24 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
                         ),
                       ),
                       Text(
-                        _duration ?? '99:99',
+                        _duration ?? '00:00:00',
                         style: const TextStyle(color: Colors.white),
                       ),
-                      if (_isFullScreen || _isLandScapeOrientation)
+                      if (_isLandScapeOrientation)
                         IconButton(
                           icon: Icon(_isVolumeEnabled ? Icons.volume_up_rounded : Icons.volume_off_rounded,
                           color: Colors.white,
                           ),
                           onPressed: () => switchVolumeSliderDisplay(show: true),
                         ),
-                        IconButton(
-                          icon: Icon(_isFullScreen ? Icons.fullscreen_exit : Icons.fullscreen,
-                          color: Colors.white,
-                          ),
-                          onPressed: fullScreenPressed,
-                        ),
-                        if (_isFullScreen)
-                          IconButton(
-                            icon: const Icon(Icons.vrpano, color: Colors.white),
-                            onPressed: cardBoardPressed,
-                          )
-                          else
-                            Container(),
-                      ],
-                    ),
+                      // VR mode button always visible
+                      IconButton(
+                        icon: const Icon(Icons.vrpano, color: Colors.white),
+                        onPressed: cardBoardPressed,
+                      ),
+                    ],
                   ),
+                ),
               ),
             ),
           Positioned(
@@ -335,48 +292,22 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
     );
   }
 
-  void cardBoardPressed() {
-    _viewPlayerController.toggleVRMode();
+  @override
+  void dispose() {
+    // Restore orientation and system UI overlays when leaving video player
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    _animationController.dispose();
+    super.dispose();
   }
 
-  Future<void> fullScreenPressed() async {
-    try {
-      // Toggle fullscreen mode in the player
-      await _viewPlayerController.fullScreen();
-
-      // Update fullscreen state
-      setState(() {
-        _isFullScreen = !_isFullScreen;
-      });
-
-      // Apply system UI and orientation changes based on fullscreen state
-      if (_isFullScreen) {
-        await SystemChrome.setPreferredOrientations([
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight
-        ]);
-        await SystemChrome.setEnabledSystemUIMode(
-          SystemUiMode.manual,
-          overlays: [],
-        );
-      } else {
-        await SystemChrome.setPreferredOrientations([
-          DeviceOrientation.portraitUp,
-          DeviceOrientation.portraitDown,
-          DeviceOrientation.landscapeLeft,
-          DeviceOrientation.landscapeRight
-        ]);
-        await SystemChrome.setEnabledSystemUIMode(
-          SystemUiMode.manual,
-          overlays: SystemUiOverlay.values,
-        );
-      }
-
-      // Trigger a rebuild to ensure UI updates
-      setState(() {});
-    } catch (e) {
-      debugPrint("Error toggling fullscreen mode: $e");
-    }
+  void cardBoardPressed() {
+    _viewPlayerController.toggleVRMode();
   }
 
   Future<void> playAndPause() async {
@@ -397,14 +328,17 @@ class _VideoPlayerPageState extends State<VideoPlayerPage>
     VrPlayerObserver observer,
   ) {
     _viewPlayerController = controller;
-    observer
-      ..onStateChange = onRecieveState
-      ..onDurationChange = onRecieveDuration
-      ..onPositionChange = onChangePosition
-      ..onFinishedChange = onRecieveEnded;
-    _viewPlayerController.loadVideo(
-      videoUrl: widget.videoUrl,
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      observer
+        ..onStateChange = onRecieveState
+        ..onDurationChange = onRecieveDuration
+        ..onPositionChange = onChangePosition
+        ..onFinishedChange = onRecieveEnded;
+      await Future.delayed(const Duration(milliseconds: 100));
+      _viewPlayerController.loadVideo(
+        videoUrl: widget.videoUrl,
+      );
+    });
   }
 
   void onRecieveState(VrState state) {
