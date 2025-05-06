@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:vr_player/vr_player.dart';
+import 'vr_image_viewer.dart';
 
 void main() => runApp(const MyApp());
 
@@ -50,6 +51,18 @@ class HomePageState extends State<HomePage> {
           IconButton(
             icon: const Icon(Icons.add),
             onPressed: _showAddLinkDialog,
+          ),
+          IconButton(
+            icon: const Icon(Icons.image),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const VrImageViewer(),
+                ),
+              );
+            },
+            tooltip: 'Open VR Image Viewer',
           ),
         ],
       ),

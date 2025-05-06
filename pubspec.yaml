@@ -9,6 +9,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  image_picker: ^1.1.2
+  panorama_viewer: ^2.0.4
   vr_player: ^0.3.0
 
 dev_dependencies:
