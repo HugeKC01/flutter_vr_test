@@ -88,21 +88,32 @@ class HomePageState extends State<HomePage> {
           ),
         ],
       ),
-      body: ListView.builder(
-        itemCount: _links.length,
-        itemBuilder: (context, index) {
-          return ListTile(
-            title: Text(_links[index]),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => VideoPlayerPage(videoUrl: _links[index]),
-                ),
-              );
-            },
-          );
-        },
+      body: ListView(
+        children: [
+          ExpansionTile(
+            title: const Text('Video Links'),
+            children: [
+              ListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: _links.length,
+                itemBuilder: (context, index) {
+                  return ListTile(
+                    title: Text(_links[index]),
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => VideoPlayerPage(videoUrl: _links[index]),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
