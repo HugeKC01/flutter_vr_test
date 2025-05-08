@@ -46,11 +46,11 @@ class _VrImageViewerState extends State<VrImageViewer> {
                     child: const Text('Pick Image'),
                   )
                 : PanoramaViewer(
-                    child: Image.file(_imageFile!),
                     longitude: _longitude,
                     latitude: _latitude,
                     zoom: _zoom,
                     onViewChanged: _onViewChanged,
+                    child: Image.file(_imageFile!),
                   ),
           ),
           Positioned(
@@ -79,8 +79,8 @@ class _VrImageViewerState extends State<VrImageViewer> {
       floatingActionButton: _imageFile != null
           ? FloatingActionButton(
               onPressed: _pickImage,
-              child: const Icon(Icons.image),
               tooltip: 'Pick another image',
+              child: const Icon(Icons.image),
             )
           : null,
     );
